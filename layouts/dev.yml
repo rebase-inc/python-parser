@@ -1,0 +1,7 @@
+version: '2'
+
+services:
+  python_parser:
+    extends:
+      file: common.yml
+      service: python_parser

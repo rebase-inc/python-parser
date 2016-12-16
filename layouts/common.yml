@@ -13,5 +13,15 @@ services:
     image: python_parser
     expose:
       - "25252"
-    ports:
-      - "25252:25252"
+  python2_parser:
+    container_name: python2_parser
+    hostname: python2_parser
+    build:
+      context: ../services/python2_parser
+      args:
+        PYPI_SERVER_SCHEME:
+        PYPI_SERVER_HOST:
+        PYPI_SERVER_PORT:
+    image: python2_parser
+    expose:
+      - "25253"

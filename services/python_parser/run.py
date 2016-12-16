@@ -6,7 +6,7 @@ import rsyslog
 
 from collections import Counter
 
-from asynctcp import AsyncTCPCallbackServer, run_simple_tcp_server
+from asynctcp import AsyncTCPCallbackServer, run_simple_tcp_server, BlockingTCPClient
 
 rsyslog.setup()
 LOGGER = logging.getLogger()
@@ -39,16 +39,23 @@ class ReferenceCollector(ast.NodeVisitor):
         self.__add_to_counter(node.id, allow_unrecognized = False)
 
 async def code_to_module_uses(code):
-    LOGGER.info('got code as {}'.format(code))
     try:
         uses = ReferenceCollector().visit(ast.parse(code))
         return json.dumps(uses)
     except SyntaxError as exc:
-        LOGGER.info('Skipping due to syntax error: {}'.format(str(exc)))
-        return json.dumps(ReferenceCollector().noop())
+        LOGGER.info('Syntax error encountered...Rerouting to python2 parser: {}'.format(str(exc)))
+        client = BlockingTCPClient('python2_parser', 25253, encode = lambda d: base64.b64encode(d) + bytes('\n', 'utf-8'))
+        uses = client.send(code).decode('utf-8')
+        return uses 
     except Exception as exc:
         LOGGER.exception('Unhandled exception in python parser {}'.format(exc))
         return json.dumps(ReferenceCollector().noop())
 
 if __name__ == '__main__':
-    run_simple_tcp_server('0.0.0.0', 25252, code_to_module_uses, lambda data: data.encode('utf-8'), base64.b64decode) 
+    AsyncTCPCallbackServer(
+            callback = code_to_module_uses, 
+            host = '0.0.0.0',
+            port = 25252,
+            encode = lambda d: d.encode('utf-8'),
+            decode = base64.b64decode
+            ).run()

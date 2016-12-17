@@ -5,10 +5,13 @@ import logging
 import rsyslog
 
 from collections import Counter
+from multiprocessing import current_process
 
 from asynctcp import AsyncTCPCallbackServer, run_simple_tcp_server, BlockingTCPClient
 
 rsyslog.setup()
+current_process().name = environ['HOSTNAME']
+
 LOGGER = logging.getLogger()
 
 class ReferenceCollector(ast.NodeVisitor):

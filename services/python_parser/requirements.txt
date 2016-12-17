@@ -1,4 +1,0 @@
-pip
-asynctcp
-rsyslog
-python-magic

@@ -1,3 +1,4 @@
+import os
 import ast
 import json
 import base64
@@ -10,7 +11,7 @@ from multiprocessing import current_process
 from asynctcp import AsyncTCPCallbackServer, run_simple_tcp_server, BlockingTCPClient
 
 rsyslog.setup()
-current_process().name = environ['HOSTNAME']
+current_process().name = os.environ['HOSTNAME']
 
 LOGGER = logging.getLogger()
 
@@ -47,7 +48,7 @@ async def code_to_module_uses(code):
         return json.dumps(uses)
     except SyntaxError as exc:
         LOGGER.info('Syntax error encountered...Rerouting to python2 parser: {}'.format(str(exc)))
-        client = BlockingTCPClient('python2_parser', 25253, encode = lambda d: base64.b64encode(d) + bytes('\n', 'utf-8'))
+        client = BlockingTCPClient('python_2_parser', 25253, encode = lambda d: base64.b64encode(d) + bytes('\n', 'utf-8'))
         uses = client.send(code).decode('utf-8')
         return uses 
     except Exception as exc:

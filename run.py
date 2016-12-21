@@ -10,8 +10,8 @@ from multiprocessing import current_process
 
 from asynctcp import AsyncTCPCallbackServer, run_simple_tcp_server, BlockingTCPClient
 
-rsyslog.setup()
 current_process().name = os.environ['HOSTNAME']
+rsyslog.setup(log_level = os.environ['LOG_LEVEL'])
 
 LOGGER = logging.getLogger()
 
@@ -47,12 +47,19 @@ async def code_to_module_uses(code):
         uses = ReferenceCollector().visit(ast.parse(code))
         return json.dumps(uses)
     except SyntaxError as exc:
-        LOGGER.info('Syntax error encountered...Rerouting to python2 parser: {}'.format(str(exc)))
+        LOGGER.debug('Syntax error encountered...Rerouting to python2 parser: {}'.format(str(exc)))
         client = BlockingTCPClient('python_2_parser', 25253, encode = lambda d: base64.b64encode(d) + bytes('\n', 'utf-8'))
         uses = client.send(code).decode('utf-8')
         return uses 
+    except ValueError as exc:
+        if exc.message.find('source code string cannot contain null bytes') >= 0:
+            LOGGER.info('Skipping parsing because code contains null bytes!')
+            return json.dumps(ReferenceCollector().noop())
+        else:
+            LOGGER.exception('Unhandled exception!')
+            return json.dumps(ReferenceCollector().noop())
     except Exception as exc:
-        LOGGER.exception('Unhandled exception in python parser {}'.format(exc))
+        LOGGER.exception('Unhandled exception')
         return json.dumps(ReferenceCollector().noop())
 
 if __name__ == '__main__':

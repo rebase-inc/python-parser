@@ -14,7 +14,7 @@ RUN apk --quiet update && \
     mkdir -p /big_repos
 
 COPY ./requirements.txt /
-COPY ./run.py /
+COPY ./server.py /
 
 RUN source /venv/bin/activate && \
     pip --quiet install \
@@ -23,4 +23,4 @@ RUN source /venv/bin/activate && \
         --extra-index-url ${PYPI_SERVER_SCHEME}${PYPI_SERVER_HOST}:${PYPI_SERVER_PORT} \
         --requirement /requirements.txt
 
-CMD ["/venv/bin/python", "-m", "run"]
+CMD ["/venv/bin/python", "-m", "server"]

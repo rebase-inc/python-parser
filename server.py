@@ -1,6 +1,7 @@
 import os
 import ast
 import json
+import errno
 import base64
 import logging
 import rsyslog
@@ -8,7 +9,7 @@ import rsyslog
 from collections import Counter
 from multiprocessing import current_process
 
-from asynctcp import AsyncTCPCallbackServer, run_simple_tcp_server, BlockingTCPClient
+from asynctcp import AsyncTcpCallbackServer
 
 current_process().name = os.environ['HOSTNAME']
 rsyslog.setup(log_level = os.environ['LOG_LEVEL'])
@@ -27,10 +28,11 @@ class ReferenceCollector(ast.NodeVisitor):
 
     def visit(self, node):
         super().visit(node)
-        return self.use_count 
+        LOGGER.debug('visiting node')
+        return self.use_count
 
     def noop(self):
-        return self.use_count 
+        return self.use_count
 
     def visit_Import(self, node):
         for name in node.names:
@@ -42,31 +44,25 @@ class ReferenceCollector(ast.NodeVisitor):
     def visit_Name(self, node):
         self.__add_to_counter(node.id, allow_unrecognized = False)
 
-async def code_to_module_uses(code):
+async def code_to_module_uses(json_object):
+    LOGGER.info('got a json object...{}'.format(str(json_object)))
     try:
-        uses = ReferenceCollector().visit(ast.parse(code))
-        return json.dumps(uses)
-    except SyntaxError as exc:
-        LOGGER.debug('Syntax error encountered...Rerouting to python2 parser: {}'.format(str(exc)))
-        client = BlockingTCPClient('python_2_parser', 25253, encode = lambda d: base64.b64encode(d) + bytes('\n', 'utf-8'))
-        uses = client.send(code).decode('utf-8')
-        return uses 
+        code = base64.b64decode(json_object['code'].encode('utf-8'))
+        LOGGER.info('about to parse code {}'.format(code))
+        data = { 'use_count': ReferenceCollector().visit(ast.parse(code)) }
+    except KeyError as exc:
+        data = { 'error': errno.EINVAL, 'use_count': None }
     except ValueError as exc:
         if exc.message.find('source code string cannot contain null bytes') >= 0:
-            LOGGER.info('Skipping parsing because code contains null bytes!')
-            return json.dumps(ReferenceCollector().noop())
+            LOGGER.error('Skipping parsing because code contains null bytes!')
+            data = { 'error': errno.EPERM, 'use_count': None }
         else:
             LOGGER.exception('Unhandled exception!')
-            return json.dumps(ReferenceCollector().noop())
+            data = { 'error': errno.EIO, 'use_count': None }
     except Exception as exc:
         LOGGER.exception('Unhandled exception')
-        return json.dumps(ReferenceCollector().noop())
+        data = { 'error': errno.EIO, 'use_count': None }
+    return json.dumps(data)
 
 if __name__ == '__main__':
-    AsyncTCPCallbackServer(
-            callback = code_to_module_uses, 
-            host = '0.0.0.0',
-            port = 25252,
-            encode = lambda d: d.encode('utf-8'),
-            decode = base64.b64decode
-            ).run()
+    AsyncTcpCallbackServer('0.0.0.0', 25252, code_to_module_uses, memoized = False).run()

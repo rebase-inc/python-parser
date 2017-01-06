@@ -1,4 +1,4 @@
-import os
+from os import environ as env
 import ast
 import json
 import errno
@@ -11,20 +11,20 @@ from multiprocessing import current_process
 
 from asynctcp import AsyncTcpCallbackServer
 
-current_process().name = os.environ['HOSTNAME']
-rsyslog.setup(log_level = os.environ['LOG_LEVEL'])
+
+current_process().name = env['HOSTNAME'] if 'HOSTNAME' in env else 'python-parser'
+rsyslog.setup(log_level=env['LOG_LEVEL'] if 'LOG_LEVEL' in env else 'DEBUG')
+
 
 LOGGER = logging.getLogger()
+
 
 class ReferenceCollector(ast.NodeVisitor):
 
     def __init__(self):
         super().__init__()
+        self.bindings = dict()
         self.use_count = Counter()
-
-    def __add_to_counter(self, name, allow_unrecognized = True):
-        if allow_unrecognized or name in self.use_count:
-            self.use_count.update([ name ])
 
     def visit(self, node):
         super().visit(node)
@@ -34,14 +34,30 @@ class ReferenceCollector(ast.NodeVisitor):
         return self.use_count
 
     def visit_Import(self, node):
-        for name in node.names:
-            self.__add_to_counter(name.asname or name.name)
+        for alias in node.names:
+            if alias.asname:
+                self.bindings[alias.asname] = alias.name
+            else:
+                self.bindings[alias.name] = alias.name
+            self.use_count.update([alias.name])
 
     def visit_ImportFrom(self, node):
-        self.__add_to_counter(node.module)
+        if node.level == 0:
+            for alias in node.names:
+                if alias.asname:
+                    self.bindings[alias.asname] = node.module
+                else:
+                    self.bindings[alias.name] = node.module
+                self.use_count.update([node.module])
+        else:
+            # levels don't work when the filename given
+            # to 'ast.parse' is unknown
+            pass
 
     def visit_Name(self, node):
-        self.__add_to_counter(node.id, allow_unrecognized = False)
+        if node.id in self.bindings:
+            self.use_count.update([self.bindings[node.id]])
+
 
 async def code_to_module_uses(json_object):
     try:
@@ -66,5 +82,8 @@ async def code_to_module_uses(json_object):
         data = { 'error': errno.EIO, 'use_count': {} }
     return json.dumps(data)
 
+
 if __name__ == '__main__':
     AsyncTcpCallbackServer('0.0.0.0', 25252, code_to_module_uses, memoized = False).run()
+
+

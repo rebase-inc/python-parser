@@ -1,0 +1,28 @@
+#!/bin/sh
+
+source /venv/bin/activate
+if [ $# -eq 0 ]; then
+    pip --help
+    return
+fi
+
+command=$1
+shift
+options=$*
+
+
+if [ "$command" = "install" ]; then
+    options="$options --extra-index-url http://pypi_server:8080"
+fi
+
+if [ "$command" = "search" ]; then
+    options="$options -i http://pypi_server:8080"
+fi
+
+echo "Pip command: $command"
+echo "Pip options: $options"
+
+pip $command \
+    --no-cache-dir \
+    --trusted-host pypi_server \
+    $options

@@ -62,6 +62,17 @@ class Collector(TestCase):
         self.assertTrue(uses)
         pprint(dict(uses))
         expectedUses = {
+            '__grammar__Assign': 3,
+            '__grammar__Attribute': 5,
+            '__grammar__Call': 8,
+            '__grammar__Expr': 3,
+            '__grammar__Import': 2,
+            '__grammar__ImportFrom': 8,
+            '__grammar__Load': 4,
+            '__grammar__Module': 1,
+            '__grammar__Name': 11,
+            '__grammar__Store': 1,
+            '__grammar__Str': 2,
             'collections': 1,
             'copy': 1,
             'logging': 4,
@@ -71,7 +82,7 @@ class Collector(TestCase):
             'pprint': 1,
             're': 1,
         }
-        pprint(expectedUses)
+        #pprint(expectedUses)
         self.assertEqual(dict(uses), expectedUses)
 
 

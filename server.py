@@ -28,6 +28,7 @@ class ReferenceCollector(ast.NodeVisitor):
 
     def visit(self, node):
         super().visit(node)
+        self.use_count.update(['__grammar__'+node.__class__.__name__])
         return self.use_count
 
     def noop(self):
@@ -50,8 +51,7 @@ class ReferenceCollector(ast.NodeVisitor):
                     self.bindings[alias.name] = node.module
                 self.use_count.update([node.module])
         else:
-            # levels don't work when the filename given
-            # to 'ast.parse' is unknown
+            # relative import means private module
             pass
 
     def visit_Name(self, node):

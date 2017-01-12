@@ -62,24 +62,28 @@ class ReferenceCollector(ast.NodeVisitor):
 async def code_to_module_uses(json_object):
     try:
         code = base64.b64decode(json_object['code'].encode('utf-8'))
-        data = { 'use_count': ReferenceCollector().visit(ast.parse(code)) }
+        context = json_object['context']
+        LOGGER.debug('Parsing %s/%s %s', context['commit'][:7]+'...', context['path'], context['order'])
+        data = {
+            'use_count': ReferenceCollector().visit(
+                ast.parse(code, filename=context['path'])
+            )
+        }
     except KeyError as exc:
-        data = { 'error': errno.EINVAL, 'use_count': {} }
+        data = { 'error': errno.EINVAL }
     except ValueError as exc:
         if exc.args[0].find('source code string cannot contain null bytes') >= 0:
             LOGGER.error('Skipping parsing because code contains null bytes!')
-            # with open('myexamplefile.py', 'wb') as f:
-            #     f.write(code)
-            data = { 'error': errno.EPERM, 'use_count': {} }
+            data = { 'error': errno.EPERM }
         else:
             LOGGER.exception('Unhandled exception!')
-            data = { 'error': errno.EIO, 'use_count': {} }
+            data = { 'error': errno.EIO }
     except SyntaxError as exc:
-        LOGGER.warning('Invalid Python3 code received: ' + str(exc.msg))
-        data = { 'error': errno.EIO, 'use_count': {} }
+        LOGGER.debug('%s => %s', exc, exc.text)
+        data = { 'error': errno.EIO }
     except Exception as exc:
         LOGGER.exception('Unhandled exception')
-        data = { 'error': errno.EIO, 'use_count': {} }
+        data = { 'error': errno.EIO }
     return json.dumps(data)
 
 

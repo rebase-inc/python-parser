@@ -4,20 +4,22 @@ import json
 import errno
 import base64
 import logging
-import rsyslog
 
 from collections import Counter
 from multiprocessing import current_process
 
+from stdlib_list import stdlib_list
+
+import rsyslog
 from asynctcp import AsyncTcpCallbackServer
 
 
 current_process().name = env['HOSTNAME'] if 'HOSTNAME' in env else 'python-parser'
 rsyslog.setup(log_level=env['LOG_LEVEL'] if 'LOG_LEVEL' in env else 'DEBUG')
 
-
 LOGGER = logging.getLogger()
 
+STANDARD_LIBRARY = stdlib_list('3.5')
 
 class ReferenceCollector(ast.NodeVisitor):
 
@@ -34,29 +36,32 @@ class ReferenceCollector(ast.NodeVisitor):
     def noop(self):
         return self.use_count
 
+    def add_binding(self, bound_name, real_name):
+        if real_name.split('.')[0] in STANDARD_LIBRARY:
+            self.bindings[bound_name] = '__stdlib__.' + real_name
+        else:
+            self.bindings[bound_name] = real_name
+
+    def add_use(self, bound_name):
+        return self.use_count.update([ self.bindings[bound_name] ])
+
     def visit_Import(self, node):
         for alias in node.names:
-            if alias.asname:
-                self.bindings[alias.asname] = alias.name
-            else:
-                self.bindings[alias.name] = alias.name
-            self.use_count.update([alias.name])
+            self.add_binding(alias.asname or alias.name, alias.name)
+            self.add_use(alias.asname or alias.name)
 
     def visit_ImportFrom(self, node):
         if node.level == 0:
             for alias in node.names:
-                if alias.asname:
-                    self.bindings[alias.asname] = node.module
-                else:
-                    self.bindings[alias.name] = node.module
-                self.use_count.update([node.module])
+                self.add_binding(alias.asname or alias.name, node.module)
+                self.add_use(alias.asname or alias.name)
         else:
             # relative import means private module
             pass
 
     def visit_Name(self, node):
         if node.id in self.bindings:
-            self.use_count.update([self.bindings[node.id]])
+            self.add_use(node.id)
 
 
 async def code_to_module_uses(json_object):

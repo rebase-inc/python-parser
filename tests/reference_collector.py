@@ -18,29 +18,47 @@ py3_code = '''
 import logging, re, collections as kollections
 from copy import *
 from logging import getLogger
+from flask import current_user
+from a.b import c as d
 from multiprocessing import current_process as process
-from os.path import abspath
+from os.path import abspath, dirname
 from os.path import abspath as apath
 from pprint import (
     PrettyPrinter,
 )
 
-from ..cousins.cooper import joe as cooter
+from ...package.cousins.cooper import joe as cooter
 from ..cousins.hogg import Jefferson as Boss
 import my_private_pkg
 
+class Foo(object):
+    def __init__(self, thing):
+        self.thing = thing
+
+f = Foo(['asdf','asdf'])
+f.thing[0]
+
+d()
+
+some_counter = kollections.Counter()
 
 root_logger = logging.getLogger()
 
+test_var = 'something'
+test_var
+
+PrettyPrinter()
+
+somebody = current_user()
 
 log = getLogger(__name__)
 
-
 abspath('.')
-
+dirname('foo/bar/baz.py')
 
 process().name = 'Foo'
 
+print([os.path.abspath(foo) for foo in [1,2,3,4]])
 
 Boss().hates(apath(cooter.path))
 
@@ -58,31 +76,39 @@ class Collector(TestCase):
 
     def test_run(self):
         self.assertTrue(self.py3_ast)
-        uses = ReferenceCollector().visit(self.py3_ast)
-        self.assertTrue(uses)
-        pprint(dict(uses))
-        expectedUses = {
-            '__grammar__.Assign': 3,
-            '__grammar__.Attribute': 5,
-            '__grammar__.Call': 8,
-            '__grammar__.Expr': 3,
-            '__grammar__.Import': 2,
-            '__grammar__.ImportFrom': 8,
-            '__grammar__.Load': 4,
-            '__grammar__.Module': 1,
-            '__grammar__.Name': 11,
-            '__grammar__.Store': 1,
-            '__grammar__.Str': 2,
-            '__stdlib__.collections': 1,
-            '__stdlib__.copy': 1,
-            '__stdlib__.logging': 4,
-            '__stdlib__.multiprocessing': 2,
-            'my_private_pkg': 2,
-            '__stdlib__.os.path': 4,
-            '__stdlib__.pprint': 1,
-            '__stdlib__.re': 1,
-        }
-        #pprint(expectedUses)
-        self.assertEqual(dict(uses), expectedUses)
+        private_modules = ['my_private_pkg']
+        reference_collector = ReferenceCollector(private_modules)
+        reference_collector.visit(self.py3_ast)
+        uses = reference_collector.use_count
+        self.assertEqual(uses.pop('flask.current_user'), 1)
+        self.assertEqual(uses.pop('a.b.c'), 1)
+        self.assertEqual(uses.pop('__stdlib__.collections.Counter'), 1)
+        self.assertEqual(uses.pop('__stdlib__.logging.getLogger'), 2)
+        self.assertEqual(uses.pop('__stdlib__.multiprocessing.current_process.name'), 1)
+        self.assertEqual(uses.pop('__stdlib__.os.path.abspath'), 3)
+        self.assertEqual(uses.pop('__stdlib__.os.path.dirname'), 1)
+        self.assertEqual(uses.pop('__stdlib__.pprint.PrettyPrinter'), 1)
+        self.assertEqual(uses.pop('__stdlib__.comprehension'), 1)
+        self.assertEqual(uses.pop('__stdlib__.Load'), 3)
+        self.assertEqual(uses.pop('__stdlib__.Assign'), 8)
+        self.assertEqual(uses.pop('__stdlib__.Attribute'), 18)
+        self.assertEqual(uses.pop('__stdlib__.Call'), 16)
+        self.assertEqual(uses.pop('__stdlib__.Expr'), 9)
+        self.assertEqual(uses.pop('__stdlib__.Import'), 2)
+        self.assertEqual(uses.pop('__stdlib__.ImportFrom'), 10)
+        self.assertEqual(uses.pop('__stdlib__.Module'), 1)
+        self.assertEqual(uses.pop('__stdlib__.Name'), 21)
+        self.assertEqual(uses.pop('__stdlib__.Str'), 6)
+        self.assertEqual(uses.pop('__stdlib__.List'), 2)
+        self.assertEqual(uses.pop('__stdlib__.ListComp'), 1)
+        self.assertEqual(uses.pop('__stdlib__.Num'), 5)
+        self.assertEqual(uses.pop('__stdlib__.ClassDef'), 1)
+        self.assertEqual(uses.pop('__stdlib__.FunctionDef'), 1)
+        self.assertEqual(uses.pop('__stdlib__.Index'), 1)
+        self.assertEqual(uses.pop('__stdlib__.Subscript'), 1)
+        self.assertEqual(uses.pop('__stdlib__.arg'), 2)
+        self.assertEqual(uses.pop('__stdlib__.arguments'), 1)
+        self.assertEqual(uses.pop('__private__.my_private_pkg.is_da_bomb'), 1)
+        self.assertEqual(dict(uses), {})
 
 

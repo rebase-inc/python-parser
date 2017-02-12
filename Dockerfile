@@ -7,11 +7,9 @@ ARG PYTHON_COMMONS_PORT
 RUN apk --quiet update && \
     apk --quiet add \
         --no-cache \
-        libpq \
         py-virtualenv \
         python3 && \
-    pyvenv /venv && \
-    mkdir -p /big_repos
+    pyvenv /venv
 
 COPY ./requirements.txt /
 COPY ./server.py /

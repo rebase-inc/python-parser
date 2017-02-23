@@ -1,4 +1,5 @@
 pip==9.0.1
+stdlib_list
+
 asynctcp
 rsyslog
-stdlib_list

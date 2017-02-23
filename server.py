@@ -10,11 +10,9 @@ from multiprocessing import current_process
 
 from stdlib_list import stdlib_list
 
-import rsyslog
 from asynctcp import AsyncTcpCallbackServer
 
 current_process().name = environ['HOSTNAME'] if 'HOSTNAME' in environ else 'python-parser'
-rsyslog.setup(log_level=environ['LOG_LEVEL'] if 'LOG_LEVEL' in environ else 'DEBUG')
 
 LOGGER = logging.getLogger()
 
@@ -141,6 +139,12 @@ async def code_to_module_uses(json_object):
 
 
 if __name__ == '__main__':
-    AsyncTcpCallbackServer('0.0.0.0', 25252, code_to_module_uses, memoized = False).run()
+    AsyncTcpCallbackServer(
+        '0.0.0.0',
+        25252,
+        'server.code_to_module_uses',
+        memoized = False,
+        search_path = '/',
+    ).run()
 
 
